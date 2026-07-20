@@ -291,26 +291,15 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
                     </h3>
                     
                     <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Cor</label>
-                        <input
-                          type="text"
-                          className="input-modern"
-                          value={formData.color}
-                          onChange={(e) => setFormData({...formData, color: e.target.value})}
-                          placeholder="Ex: Preto"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Capacidade</label>
-                        <input
-                          type="text"
-                          className="input-modern"
-                          value={formData.capacity}
-                          onChange={(e) => setFormData({...formData, capacity: e.target.value})}
-                          placeholder="Ex: 128GB"
-                        />
-                      </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Especificações</label>
+                  <textarea
+                    className="input-modern h-24 resize-none"
+                    value={formData.specs}
+                    onChange={(e) => setFormData({...formData, specs: e.target.value})}
+                    placeholder="Ex: Aparelho importado, caixa original, bateria 100%..."
+                  />
+                </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">Condição</label>
                         <select
