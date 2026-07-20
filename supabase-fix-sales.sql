@@ -83,6 +83,17 @@ END $$;
 
 DO $$
 BEGIN
+  -- total
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'sales' AND column_name = 'total'
+  ) THEN
+    ALTER TABLE sales ADD COLUMN total DECIMAL(10,2) NOT NULL DEFAULT 0;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
   -- total_price
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns 
