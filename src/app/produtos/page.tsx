@@ -74,27 +74,42 @@ export default function ProdutosPage() {
     try {
       const productName = `${formData.brand} ${formData.model}`
       
-      const { error } = await supabase
+      console.log("Cadastrando produto:", {
+        name: productName,
+        brand: formData.brand,
+        model: formData.model,
+        category: formData.category,
+        cost: parseFloat(formData.cost),
+        price: parseFloat(formData.price),
+        stock: parseInt(formData.stock)
+      })
+      
+      const { data, error } = await supabase
         .from('products')
         .insert([{
           name: productName,
           brand: formData.brand,
           model: formData.model,
           category: formData.category,
-          color: formData.color,
-          capacity: formData.capacity,
-          condition: formData.condition,
+          color: formData.color || null,
+          capacity: formData.capacity || null,
+          condition: formData.condition || null,
           cost: parseFloat(formData.cost),
           price: parseFloat(formData.price),
           stock: parseInt(formData.stock),
           min_stock: parseInt(formData.min_stock),
-          image_url: formData.image_url,
-          specs: formData.specs,
+          image_url: formData.image_url || null,
+          specs: formData.specs || null,
           product_status: "ativo"
         }])
+        .select()
 
-      if (error) throw error
+      if (error) {
+        console.error("Erro do Supabase:", error)
+        throw error
+      }
 
+      console.log("Produto cadastrado:", data)
       alert("Produto cadastrado com sucesso!")
       setShowForm(false)
       setFormData({
@@ -114,7 +129,8 @@ export default function ProdutosPage() {
       loadProducts()
     } catch (error) {
       console.error('Erro ao cadastrar produto:', error)
-      alert("Erro ao cadastrar produto: " + (error as any)?.message || "Verifique os dados")
+      const errorMessage = (error as any)?.message || "Verifique os dados"
+      alert("Erro ao cadastrar produto:\n\n" + errorMessage + "\n\nVerifique o console para mais detalhes.")
     }
   }
 
