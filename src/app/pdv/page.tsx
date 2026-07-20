@@ -136,6 +136,7 @@ export default function PdvPage() {
             imei: `SEM-IMEI-${Date.now()}-${item.id}`,
             quantity: item.quantity,
             unit_price: item.price,
+            total: item.price * item.quantity,
             total_price: item.price * item.quantity,
             final_price: item.price * item.quantity,
             payment_method: method,
