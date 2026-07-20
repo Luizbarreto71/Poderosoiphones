@@ -138,6 +138,7 @@ export default function PdvPage() {
             unit_price: item.price,
             total: item.price * item.quantity,
             total_price: item.price * item.quantity,
+            final_total: item.price * item.quantity,
             final_price: item.price * item.quantity,
             payment_method: method,
             sale_status: "completed",
