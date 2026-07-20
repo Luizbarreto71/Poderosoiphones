@@ -4,7 +4,7 @@ import * as React from "react"
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
-import { Search, Plus, Package, Edit, Trash2, Smartphone } from "lucide-react"
+import { Search, Plus, Package, Edit, Trash2 } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
 import { supabase } from "@/lib/supabase"
 
@@ -34,7 +34,6 @@ export default function ProdutosPage() {
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
   const [formData, setFormData] = useState({
-    name: "",
     brand: "",
     model: "",
     category: "iPhone",
@@ -73,10 +72,12 @@ export default function ProdutosPage() {
     e.preventDefault()
     
     try {
+      const productName = `${formData.brand} ${formData.model}`
+      
       const { error } = await supabase
         .from('products')
         .insert([{
-          name: formData.name,
+          name: productName,
           brand: formData.brand,
           model: formData.model,
           category: formData.category,
@@ -97,7 +98,6 @@ export default function ProdutosPage() {
       alert("Produto cadastrado com sucesso!")
       setShowForm(false)
       setFormData({
-        name: "",
         brand: "",
         model: "",
         category: "iPhone",
@@ -114,7 +114,7 @@ export default function ProdutosPage() {
       loadProducts()
     } catch (error) {
       console.error('Erro ao cadastrar produto:', error)
-      alert("Erro ao cadastrar produto")
+      alert("Erro ao cadastrar produto: " + (error as any)?.message || "Verifique os dados")
     }
   }
 
@@ -159,7 +159,7 @@ export default function ProdutosPage() {
             className="btn btn-primary"
           >
             <Plus className="h-4 w-4" />
-            Novo Produto
+            <span className="hidden sm:inline">Novo Produto</span>
           </button>
         </div>
 
@@ -169,7 +169,7 @@ export default function ProdutosPage() {
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Buscar por nome, marca ou modelo..."
+              placeholder="Buscar por marca ou modelo..."
               className="input-modern pl-10"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -271,23 +271,12 @@ export default function ProdutosPage() {
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-white rounded-2xl p-6 max-w-2xl w-full my-8"
+              className="bg-white rounded-2xl p-6 max-w-2xl w-full my-8 max-h-[90vh] overflow-y-auto"
             >
               <h3 className="text-xl font-bold mb-6">Novo Produto</h3>
               
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
-                    <input
-                      type="text"
-                      required
-                      className="input-modern"
-                      value={formData.name}
-                      onChange={(e) => setFormData({...formData, name: e.target.value})}
-                      placeholder="Ex: iPhone 15 Pro Max"
-                    />
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Marca *</label>
                     <input
@@ -299,9 +288,6 @@ export default function ProdutosPage() {
                       placeholder="Ex: Apple"
                     />
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Modelo *</label>
                     <input
@@ -313,30 +299,31 @@ export default function ProdutosPage() {
                       placeholder="Ex: iPhone 15 Pro Max"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Categoria *</label>
-                    <select
-                      required
-                      className="select-modern"
-                      value={formData.category}
-                      onChange={(e) => setFormData({...formData, category: e.target.value})}
-                    >
-                      <option value="iPhone">iPhone</option>
-                      <option value="Samsung">Samsung</option>
-                      <option value="Xiaomi">Xiaomi</option>
-                      <option value="Apple Watch">Apple Watch</option>
-                      <option value="AirPods">AirPods</option>
-                      <option value="Capinhas">Capinhas</option>
-                      <option value="Películas">Películas</option>
-                      <option value="Carregadores">Carregadores</option>
-                      <option value="Cabos">Cabos</option>
-                      <option value="Fones">Fones</option>
-                      <option value="Outros">Outros</option>
-                    </select>
-                  </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Categoria *</label>
+                  <select
+                    required
+                    className="select-modern"
+                    value={formData.category}
+                    onChange={(e) => setFormData({...formData, category: e.target.value})}
+                  >
+                    <option value="iPhone">iPhone</option>
+                    <option value="Samsung">Samsung</option>
+                    <option value="Xiaomi">Xiaomi</option>
+                    <option value="Apple Watch">Apple Watch</option>
+                    <option value="AirPods">AirPods</option>
+                    <option value="Capinhas">Capinhas</option>
+                    <option value="Películas">Películas</option>
+                    <option value="Carregadores">Carregadores</option>
+                    <option value="Cabos">Cabos</option>
+                    <option value="Fones">Fones</option>
+                    <option value="Outros">Outros</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Cor</label>
                     <input
@@ -372,7 +359,7 @@ export default function ProdutosPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Custo (R$) *</label>
                     <input

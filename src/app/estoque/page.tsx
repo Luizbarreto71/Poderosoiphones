@@ -1,51 +1,66 @@
 "use client"
 
 import * as React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
-import { Search, Filter, AlertTriangle, Package, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight } from "lucide-react"
+import { Search, AlertTriangle, Package, TrendingUp, TrendingDown } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
+import { supabase } from "@/lib/supabase"
 
 interface Product {
-  id: number
+  id: string
   name: string
+  brand: string
+  model: string
   category: string
   stock: number
-  minStock: number
+  min_stock: number
   price: number
-  status: "ok" | "low" | "critical"
-  image: string
+  product_status: string
 }
 
-const products: Product[] = [
-  { id: 1, name: "iPhone 15 Pro Max", category: "iPhone", stock: 5, minStock: 3, price: 9499, status: "ok", image: "📱" },
-  { id: 2, name: "iPhone 15 Pro", category: "iPhone", stock: 2, minStock: 3, price: 7999, status: "low", image: "📱" },
-  { id: 3, name: "iPhone 15", category: "iPhone", stock: 1, minStock: 3, price: 5299, status: "critical", image: "📱" },
-  { id: 4, name: "Samsung S24 Ultra", category: "Samsung", stock: 2, minStock: 2, price: 7999, status: "ok", image: "📱" },
-  { id: 5, name: "AirPods Pro 2", category: "AirPods", stock: 12, minStock: 5, price: 2499, status: "ok", image: "🎧" },
-  { id: 6, name: "Capinha Siliconada", category: "Acessórios", stock: 25, minStock: 10, price: 199, status: "ok", image: "📦" },
-  { id: 7, name: "Carregador 20W", category: "Carregadores", stock: 3, minStock: 5, price: 249, status: "low", image: "🔌" },
-  { id: 8, name: "Cabo USB-C", category: "Cabos", stock: 0, minStock: 10, price: 89, status: "critical", image: "🔌" },
-]
-
 export default function EstoquePage() {
+  const [products, setProducts] = useState<Product[]>([])
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState("todos")
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadProducts()
+  }, [])
+
+  const loadProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('name')
+
+      if (error) throw error
+      setProducts(data || [])
+    } catch (error) {
+      console.error('Erro ao carregar produtos:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase())
+    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
+                         p.brand.toLowerCase().includes(search.toLowerCase()) ||
+                         p.model.toLowerCase().includes(search.toLowerCase())
     const matchesFilter = filter === "todos" || 
-      (filter === "baixo" && p.status !== "ok") ||
-      (filter === "critico" && p.status === "critical")
+      (filter === "baixo" && p.stock <= p.min_stock && p.stock > 0) ||
+      (filter === "critico" && p.stock === 0)
     return matchesSearch && matchesFilter
   })
 
   const stats = {
     total: products.length,
-    ok: products.filter(p => p.status === "ok").length,
-    low: products.filter(p => p.status === "low").length,
-    critical: products.filter(p => p.status === "critical").length,
+    ok: products.filter(p => p.stock > p.min_stock).length,
+    low: products.filter(p => p.stock <= p.min_stock && p.stock > 0).length,
+    critical: products.filter(p => p.stock === 0).length,
   }
 
   return (
@@ -136,52 +151,11 @@ export default function EstoquePage() {
 
         {/* Products Table */}
         <div className="chart-container overflow-x-auto">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Produto</th>
-                <th>Categoria</th>
-                <th>Estoque</th>
-                <th>Mínimo</th>
-                <th>Status</th>
-                <th>Preço</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredProducts.map((product) => (
-                <tr key={product.id}>
-                  <td>
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{product.image}</span>
-                      <span className="font-medium">{product.name}</span>
-                    </div>
-                  </td>
-                  <td>{product.category}</td>
-                  <td>
-                    <span className={`font-semibold ${
-                      product.stock === 0 ? "text-red-600" :
-                      product.stock <= product.minStock ? "text-yellow-600" : "text-green-600"
-                    }`}>
-                      {product.stock}
-                    </span>
-                  </td>
-                  <td>{product.minStock}</td>
-                  <td>
-                    <span className={`badge ${
-                      product.status === "ok" ? "badge-success" :
-                      product.status === "low" ? "badge-warning" : "badge-danger"
-                    }`}>
-                      {product.status === "ok" ? "OK" :
-                       product.status === "low" ? "Baixo" : "Crítico"}
-                    </span>
-                  </td>
-                  <td className="font-medium">{formatCurrency(product.price)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {filteredProducts.length === 0 && (
+          {loading ? (
+            <div className="text-center py-12">
+              <p className="text-gray-500">Carregando...</p>
+            </div>
+          ) : filteredProducts.length === 0 ? (
             <div className="empty-state">
               <div className="empty-state-icon">
                 <Search className="h-6 w-6" />
@@ -189,6 +163,51 @@ export default function EstoquePage() {
               <p className="empty-state-title">Nenhum produto encontrado</p>
               <p className="empty-state-text">Tente ajustar sua busca ou filtros</p>
             </div>
+          ) : (
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Produto</th>
+                  <th>Categoria</th>
+                  <th>Estoque</th>
+                  <th>Mínimo</th>
+                  <th>Status</th>
+                  <th>Preço</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredProducts.map((product) => (
+                  <tr key={product.id}>
+                    <td>
+                      <div>
+                        <p className="font-medium">{product.name}</p>
+                        <p className="text-xs text-gray-500">{product.brand} {product.model}</p>
+                      </div>
+                    </td>
+                    <td>{product.category}</td>
+                    <td>
+                      <span className={`font-semibold ${
+                        product.stock === 0 ? "text-red-600" :
+                        product.stock <= product.min_stock ? "text-yellow-600" : "text-green-600"
+                      }`}>
+                        {product.stock}
+                      </span>
+                    </td>
+                    <td>{product.min_stock}</td>
+                    <td>
+                      <span className={`badge ${
+                        product.stock === 0 ? "badge-danger" :
+                        product.stock <= product.min_stock ? "badge-warning" : "badge-success"
+                      }`}>
+                        {product.stock === 0 ? "Crítico" :
+                         product.stock <= product.min_stock ? "Baixo" : "OK"}
+                      </span>
+                    </td>
+                    <td className="font-medium">{formatCurrency(product.price)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       </div>
