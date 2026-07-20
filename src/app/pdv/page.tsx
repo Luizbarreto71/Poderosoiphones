@@ -7,6 +7,7 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Search, Plus, Minus, Trash2, ShoppingCart, User, CreditCard, QrCode } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
 import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/contexts/auth-context"
 
 interface Product {
   id: string
@@ -29,6 +30,7 @@ export default function PdvPage() {
   const [customerName, setCustomerName] = useState("")
   const [customerPhone, setCustomerPhone] = useState("")
   const [loading, setLoading] = useState(true)
+  const { user } = useAuth()
 
   useEffect(() => {
     loadProducts()
@@ -125,6 +127,7 @@ export default function PdvPage() {
         const { error: saleError } = await supabase
           .from('sales')
           .insert([{
+            user_id: user?.id || null,
             customer_id: customer.id,
             customer_name: customerName,
             customer_phone: customerPhone,
@@ -136,7 +139,7 @@ export default function PdvPage() {
             total_price: item.price * item.quantity,
             final_price: item.price * item.quantity,
             payment_method: method,
-            status: "completed",
+            sale_status: "completed",
             date: new Date().toISOString().split('T')[0]
           }])
 
