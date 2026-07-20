@@ -171,6 +171,17 @@ END $$;
 
 DO $$
 BEGIN
+  -- user_id
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'sales' AND column_name = 'user_id'
+  ) THEN
+    ALTER TABLE sales ADD COLUMN user_id UUID NOT NULL DEFAULT uuid_generate_v4();
+  END IF;
+END $$;
+
+DO $$
+BEGIN
   -- created_by
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns 
