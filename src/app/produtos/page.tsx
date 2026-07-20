@@ -7,6 +7,7 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout"
 import { Search, Plus, Package, Edit, Trash2 } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
 import { supabase } from "@/lib/supabase"
+import { ProductFormModal } from "@/components/products/product-form-modal"
 
 interface Product {
   id: string
@@ -32,19 +33,6 @@ export default function ProdutosPage() {
   const [selectedCategory, setSelectedCategory] = useState("todos")
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [formData, setFormData] = useState({
-    brand: "",
-    model: "",
-    category: "iPhone",
-    color: "",
-    capacity: "",
-    condition: "novo",
-    cost: "",
-    price: "",
-    stock: "",
-    min_stock: "5",
-    specs: "",
-  })
 
   useEffect(() => {
     loadProducts()
@@ -66,68 +54,8 @@ export default function ProdutosPage() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    try {
-      const productName = `${formData.brand} ${formData.model}`
-      
-      console.log("Cadastrando produto:", {
-        name: productName,
-        brand: formData.brand,
-        model: formData.model,
-        category: formData.category,
-        cost: parseFloat(formData.cost),
-        price: parseFloat(formData.price),
-        stock: parseInt(formData.stock)
-      })
-      
-      const { data, error } = await supabase
-        .from('products')
-        .insert([{
-          name: productName,
-          brand: formData.brand,
-          model: formData.model,
-          category: formData.category,
-          color: formData.color || null,
-          capacity: formData.capacity || null,
-          condition: formData.condition || null,
-          cost: parseFloat(formData.cost),
-          price: parseFloat(formData.price),
-          stock: parseInt(formData.stock),
-          min_stock: parseInt(formData.min_stock),
-          specs: formData.specs || null,
-          product_status: "ativo"
-        }])
-        .select()
-
-      if (error) {
-        console.error("Erro do Supabase:", error)
-        throw error
-      }
-
-      console.log("Produto cadastrado:", data)
-      alert("Produto cadastrado com sucesso!")
-      setShowForm(false)
-      setFormData({
-        brand: "",
-        model: "",
-        category: "iPhone",
-        color: "",
-        capacity: "",
-        condition: "novo",
-        cost: "",
-        price: "",
-        stock: "",
-        min_stock: "5",
-        specs: "",
-      })
-      loadProducts()
-    } catch (error) {
-      console.error('Erro ao cadastrar produto:', error)
-      const errorMessage = (error as any)?.message || "Verifique os dados"
-      alert("Erro ao cadastrar produto:\n\n" + errorMessage + "\n\nVerifique o console para mais detalhes.")
-    }
+  const handleSuccess = () => {
+    loadProducts()
   }
 
   const handleDelete = async (id: string) => {
@@ -278,166 +206,11 @@ export default function ProdutosPage() {
         </div>
 
         {/* Product Form Modal */}
-        {showForm && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-white rounded-2xl p-6 max-w-2xl w-full my-8 max-h-[90vh] overflow-y-auto"
-            >
-              <h3 className="text-xl font-bold mb-6">Novo Produto</h3>
-              
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Marca *</label>
-                    <input
-                      type="text"
-                      required
-                      className="input-modern"
-                      value={formData.brand}
-                      onChange={(e) => setFormData({...formData, brand: e.target.value})}
-                      placeholder="Ex: Apple"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Modelo *</label>
-                    <input
-                      type="text"
-                      required
-                      className="input-modern"
-                      value={formData.model}
-                      onChange={(e) => setFormData({...formData, model: e.target.value})}
-                      placeholder="Ex: iPhone 15 Pro Max"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Categoria *</label>
-                  <select
-                    required
-                    className="select-modern"
-                    value={formData.category}
-                    onChange={(e) => setFormData({...formData, category: e.target.value})}
-                  >
-                    <option value="iPhone">iPhone</option>
-                    <option value="Samsung">Samsung</option>
-                    <option value="Xiaomi">Xiaomi</option>
-                    <option value="Apple Watch">Apple Watch</option>
-                    <option value="AirPods">AirPods</option>
-                    <option value="Capinhas">Capinhas</option>
-                    <option value="Películas">Películas</option>
-                    <option value="Carregadores">Carregadores</option>
-                    <option value="Cabos">Cabos</option>
-                    <option value="Fones">Fones</option>
-                    <option value="Outros">Outros</option>
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Cor</label>
-                    <input
-                      type="text"
-                      className="input-modern"
-                      value={formData.color}
-                      onChange={(e) => setFormData({...formData, color: e.target.value})}
-                      placeholder="Ex: Preto"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Capacidade</label>
-                    <input
-                      type="text"
-                      className="input-modern"
-                      value={formData.capacity}
-                      onChange={(e) => setFormData({...formData, capacity: e.target.value})}
-                      placeholder="Ex: 128GB"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Condição</label>
-                    <select
-                      className="select-modern"
-                      value={formData.condition}
-                      onChange={(e) => setFormData({...formData, condition: e.target.value})}
-                    >
-                      <option value="novo">Novo</option>
-                      <option value="seminovo">Seminovo</option>
-                      <option value="usado">Usado</option>
-                      <option value="vitrine">Vitrine</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Custo (R$) *</label>
-                    <input
-                      type="number"
-                      required
-                      step="0.01"
-                      className="input-modern"
-                      value={formData.cost}
-                      onChange={(e) => setFormData({...formData, cost: e.target.value})}
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Preço (R$) *</label>
-                    <input
-                      type="number"
-                      required
-                      step="0.01"
-                      className="input-modern"
-                      value={formData.price}
-                      onChange={(e) => setFormData({...formData, price: e.target.value})}
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Estoque *</label>
-                    <input
-                      type="number"
-                      required
-                      className="input-modern"
-                      value={formData.stock}
-                      onChange={(e) => setFormData({...formData, stock: e.target.value})}
-                      placeholder="0"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Especificações</label>
-                  <textarea
-                    className="input-modern h-20"
-                    value={formData.specs}
-                    onChange={(e) => setFormData({...formData, specs: e.target.value})}
-                    placeholder="Ex: 6.7 polegadas, 48MP, 256GB"
-                  />
-                </div>
-
-                <div className="flex gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowForm(false)}
-                    className="btn btn-secondary flex-1"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn btn-primary flex-1"
-                  >
-                    Cadastrar Produto
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
+        <ProductFormModal
+          isOpen={showForm}
+          onClose={() => setShowForm(false)}
+          onSuccess={handleSuccess}
+        />
       </div>
     </DashboardLayout>
   )
