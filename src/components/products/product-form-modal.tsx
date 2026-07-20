@@ -126,8 +126,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
           price: parseFloat(formData.price),
           stock: parseInt(formData.stock),
           min_stock: parseInt(formData.min_stock),
-          specs: formData.specs || null,
-          product_status: "ativo"
+          specs: formData.specs || null
         }])
         .select()
 
