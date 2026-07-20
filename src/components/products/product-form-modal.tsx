@@ -124,6 +124,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
           condition: formData.condition || null,
           cost: parseFloat(formData.cost),
           price: parseFloat(formData.price),
+          sale_price: parseFloat(formData.price),
           stock: parseInt(formData.stock),
           min_stock: parseInt(formData.min_stock),
           specs: formData.specs || null
