@@ -21,7 +21,6 @@ interface Product {
   price: number
   stock: number
   min_stock: number
-  image_url?: string
   specs?: string
   product_status: string
   created_at: string
@@ -44,7 +43,6 @@ export default function ProdutosPage() {
     price: "",
     stock: "",
     min_stock: "5",
-    image_url: "",
     specs: "",
   })
 
@@ -98,7 +96,6 @@ export default function ProdutosPage() {
           price: parseFloat(formData.price),
           stock: parseInt(formData.stock),
           min_stock: parseInt(formData.min_stock),
-          image_url: formData.image_url || null,
           specs: formData.specs || null,
           product_status: "ativo"
         }])
@@ -123,7 +120,6 @@ export default function ProdutosPage() {
         price: "",
         stock: "",
         min_stock: "5",
-        image_url: "",
         specs: "",
       })
       loadProducts()
@@ -411,17 +407,6 @@ export default function ProdutosPage() {
                       placeholder="0"
                     />
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">URL da Imagem</label>
-                  <input
-                    type="text"
-                    className="input-modern"
-                    value={formData.image_url}
-                    onChange={(e) => setFormData({...formData, image_url: e.target.value})}
-                    placeholder="https://..."
-                  />
                 </div>
 
                 <div>
