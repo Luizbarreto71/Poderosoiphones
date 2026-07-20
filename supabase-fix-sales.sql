@@ -6,6 +6,17 @@
 -- Adicionar colunas faltantes na tabela sales (se não existirem)
 DO $$
 BEGIN
+  -- product_id
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'sales' AND column_name = 'product_id'
+  ) THEN
+    ALTER TABLE sales ADD COLUMN product_id UUID REFERENCES products(id);
+  END IF;
+END $$;
+
+DO $$
+BEGIN
   -- customer_name
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns 
