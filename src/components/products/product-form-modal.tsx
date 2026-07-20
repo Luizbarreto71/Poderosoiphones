@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { X, Smartphone, Hash, MapPin, DollarSign, TrendingUp, FileText } from "lucide-react"
+import { X, Smartphone, Hash, MapPin, DollarSign, TrendingUp } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
 import { supabase } from "@/lib/supabase"
 
@@ -22,7 +22,6 @@ interface ProductFormData {
   location: string
   cost: string
   price: string
-  specs: string
 }
 
 interface ProductFormModalProps {
@@ -47,7 +46,6 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
     location: "Vitrine",
     cost: "",
     price: "",
-    specs: "",
   })
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -128,7 +126,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
           profit: parseFloat(formData.price) - parseFloat(formData.cost),
           stock: parseInt(formData.stock),
           min_stock: parseInt(formData.min_stock),
-          specs: formData.specs || null
+          product_status: "ativo"
         }])
         .select()
 
@@ -160,7 +158,6 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
         location: "Vitrine",
         cost: "",
         price: "",
-        specs: "",
       })
       setErrors({})
 
@@ -292,15 +289,26 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
                     </h3>
                     
                     <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Especificações</label>
-                  <textarea
-                    className="input-modern h-24 resize-none"
-                    value={formData.specs}
-                    onChange={(e) => setFormData({...formData, specs: e.target.value})}
-                    placeholder="Ex: Aparelho importado, caixa original, bateria 100%..."
-                  />
-                </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Cor</label>
+                        <input
+                          type="text"
+                          className="input-modern"
+                          value={formData.color}
+                          onChange={(e) => setFormData({...formData, color: e.target.value})}
+                          placeholder="Ex: Preto"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Capacidade</label>
+                        <input
+                          type="text"
+                          className="input-modern"
+                          value={formData.capacity}
+                          onChange={(e) => setFormData({...formData, capacity: e.target.value})}
+                          placeholder="Ex: 128GB"
+                        />
+                      </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">Condição</label>
                         <select
@@ -508,20 +516,6 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
                         </div>
                       </div>
                     )}
-                  </div>
-
-                  {/* Seção 6: Observações */}
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-blue-600" />
-                      Observações
-                    </h3>
-                    <textarea
-                      className="input-modern h-24 resize-none"
-                      value={formData.specs}
-                      onChange={(e) => setFormData({...formData, specs: e.target.value})}
-                      placeholder="Ex: Aparelho importado, caixa original, bateria 100%..."
-                    />
                   </div>
                 </div>
               </div>
