@@ -101,8 +101,18 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
 
     try {
       const productName = `${formData.brand} ${formData.model}`
+      
+      console.log("=== CADASTRANDO PRODUTO ===")
+      console.log("Nome:", productName)
+      console.log("Marca:", formData.brand)
+      console.log("Modelo:", formData.model)
+      console.log("Categoria:", formData.category)
+      console.log("Custo:", parseFloat(formData.cost))
+      console.log("Preço:", parseFloat(formData.price))
+      console.log("Estoque:", parseInt(formData.stock))
+      console.log("Min Stock:", parseInt(formData.min_stock))
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('products')
         .insert([{
           name: productName,
@@ -119,8 +129,19 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
           specs: formData.specs || null,
           product_status: "ativo"
         }])
+        .select()
 
-      if (error) throw error
+      if (error) {
+        console.error("=== ERRO DO SUPABASE ===")
+        console.error("Código:", error.code)
+        console.error("Mensagem:", error.message)
+        console.error("Detalhes:", error.details)
+        console.error("Hint:", error.hint)
+        throw error
+      }
+
+      console.log("=== PRODUTO CADASTRADO COM SUCESSO ===")
+      console.log("Dados:", data)
 
       // Reset form
       setFormData({
@@ -142,11 +163,14 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
       })
       setErrors({})
 
+      alert("Produto cadastrado com sucesso!")
       onSuccess()
       onClose()
     } catch (error) {
-      console.error('Erro ao cadastrar produto:', error)
-      alert("Erro ao cadastrar produto")
+      console.error('=== ERRO AO CADASTRAR PRODUTO ===')
+      console.error('Erro completo:', error)
+      const errorMessage = (error as any)?.message || "Verifique os dados"
+      alert("Erro ao cadastrar produto:\n\n" + errorMessage + "\n\nVerifique o console (F12) para mais detalhes.")
     } finally {
       setLoading(false)
     }
