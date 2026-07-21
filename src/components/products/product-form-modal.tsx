@@ -208,21 +208,10 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
   const handleImeiKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault()
-      if (inputBuffer.current.length > 0) {
-        processIMEI(inputBuffer.current)
-        inputBuffer.current = ""
-      } else if (formData.imei_primary.length > 0) {
-        processIMEI(formData.imei_primary)
+      const imei = formData.imei_primary.trim()
+      if (imei.length > 0) {
+        processIMEI(imei)
       }
-    } else if (e.key.length === 1) {
-      inputBuffer.current += e.key
-      if (bufferTimeout.current) clearTimeout(bufferTimeout.current)
-      bufferTimeout.current = setTimeout(() => {
-        if (inputBuffer.current.length === 15) {
-          processIMEI(inputBuffer.current)
-          inputBuffer.current = ""
-        }
-      }, 100)
     }
   }
 
