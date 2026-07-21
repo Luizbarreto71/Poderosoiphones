@@ -55,8 +55,8 @@ export default function DashboardPage() {
       const today = new Date().toISOString().split('T')[0]
       const todaySales = sales?.filter(s => s.date === today) || []
       
-      const monthRevenue = sales?.reduce((sum, s) => sum + Number(s.final_price), 0) || 0
-      const todayRevenue = todaySales.reduce((sum, s) => sum + Number(s.final_price), 0)
+      const monthRevenue = sales?.reduce((sum, s) => sum + Number(s.final_total || s.final_price), 0) || 0
+      const todayRevenue = todaySales.reduce((sum, s) => sum + Number(s.final_total || s.final_price), 0)
       
       // Carregar produtos
       const { data: products } = await supabase
@@ -98,7 +98,7 @@ export default function DashboardPage() {
         const daySales = sales?.filter(s => s.date === date) || []
         return {
           date: new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-          vendas: daySales.reduce((sum, s) => sum + Number(s.final_price), 0)
+          vendas: daySales.reduce((sum, s) => sum + Number(s.final_total || s.final_price), 0)
         }
       })
 
