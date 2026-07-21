@@ -124,47 +124,67 @@ export default function PdvPage() {
 
       // Registrar cada item do carrinho como uma venda
       for (const item of cart) {
+        const saleData = {
+          user_id: user?.id || null,
+          customer_id: customer.id,
+          customer_name: customerName,
+          customer_phone: customerPhone,
+          product_id: item.id,
+          product_name: item.name,
+          imei: `SEM-IMEI-${Date.now()}-${item.id}`,
+          quantity: item.quantity,
+          unit_price: item.price,
+          total: item.price * item.quantity,
+          total_price: item.price * item.quantity,
+          final_total: item.price * item.quantity,
+          final_price: item.price * item.quantity,
+          payment_method: method,
+          sale_status: "completed",
+          date: new Date().toISOString().split('T')[0]
+        }
+        
+        console.log("=== SALVANDO VENDA ===", saleData)
+        
         const { error: saleError } = await supabase
           .from('sales')
-          .insert([{
-            user_id: user?.id || null,
-            customer_id: customer.id,
-            customer_name: customerName,
-            customer_phone: customerPhone,
-            product_id: item.id,
-            product_name: item.name,
-            imei: `SEM-IMEI-${Date.now()}-${item.id}`,
-            quantity: item.quantity,
-            unit_price: item.price,
-            total: item.price * item.quantity,
-            total_price: item.price * item.quantity,
-            final_total: item.price * item.quantity,
-            final_price: item.price * item.quantity,
-            payment_method: method,
-            sale_status: "completed",
-            date: new Date().toISOString().split('T')[0]
-          }])
+          .insert([saleData])
 
-        if (saleError) throw saleError
+        if (saleError) {
+          console.error("=== ERRO AO SALVAR VENDA ===", saleError)
+          throw saleError
+        }
 
         // Atualizar estoque
         const { error: stockError } = await supabase
           .from('products')
-          .update({ stock: item.stock - item.quantity })
+          .update({ stock: Math.max(0, item.stock - item.quantity) })
           .eq('id', item.id)
 
         if (stockError) console.error('Erro ao atualizar estoque:', stockError)
       }
 
-      alert(`Venda finalizada com ${method}! Total: ${formatCurrency(total)}`)
+      // Atualizar total gasto do cliente
+      if (customer) {
+        try {
+          await supabase.rpc('update_customer_total_spent', {
+            customer_id: customer.id,
+            amount: total
+          })
+        } catch (e) {
+          console.log("RPC não disponível, pulando atualização de total gasto")
+        }
+      }
+
+      alert(`✅ Venda finalizada com sucesso! ${method}\nTotal: ${formatCurrency(total)}`)
       setCart([])
       setShowPayment(false)
       setCustomerName("")
       setCustomerPhone("")
       loadProducts()
     } catch (error) {
-      console.error('Erro ao finalizar venda:', error)
-      alert("Erro ao finalizar venda")
+      console.error('=== ERRO AO FINALIZAR VENDA ===', error)
+      const errorMsg = (error as any)?.message || error?.toString?.() || "Erro desconhecido"
+      alert(`❌ Erro ao finalizar venda:\n${errorMsg}\n\nVerifique o console (F12) para mais detalhes.`)
     }
   }
 
