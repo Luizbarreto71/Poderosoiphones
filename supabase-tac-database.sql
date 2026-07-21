@@ -24,13 +24,7 @@ CREATE POLICY "Usuários autenticados podem ver TAC" ON device_tac_database
 
 -- Política: admins e gerentes podem gerenciar
 CREATE POLICY "Admins e gerentes podem gerenciar TAC" ON device_tac_database
-  FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM users
-      WHERE users.id = auth.uid()
-      AND users.role IN ('admin', 'gerente')
-    )
-  );
+  FOR ALL USING (auth.role() = 'authenticated');
 
 -- Inserir alguns TACs de exemplo (iPhones populares)
 INSERT INTO device_tac_database (tac, manufacturer, brand, model) VALUES
