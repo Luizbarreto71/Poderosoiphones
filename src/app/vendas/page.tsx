@@ -14,10 +14,10 @@ interface Sale {
   customer_phone: string
   product_name: string
   imei: string
-  price: number
+  final_price: number
   payment_method: string
   date: string
-  status: "completed" | "pending" | "cancelled"
+  sale_status: string
 }
 
 export default function VendasPage() {
@@ -121,15 +121,15 @@ export default function VendasPage() {
                     <td>
                       <code className="text-xs bg-gray-100 px-2 py-1 rounded">{sale.imei}</code>
                     </td>
-                    <td className="font-medium">{formatCurrency(sale.price)}</td>
+                    <td className="font-medium">{formatCurrency(sale.final_price)}</td>
                     <td>{sale.payment_method}</td>
                     <td>
                       <span className={`badge ${
-                        sale.status === "completed" ? "badge-success" :
-                        sale.status === "pending" ? "badge-warning" : "badge-danger"
+                        sale.sale_status === "completed" ? "badge-success" :
+                        sale.sale_status === "pending" ? "badge-warning" : "badge-danger"
                       }`}>
-                        {sale.status === "completed" ? "Concluída" :
-                         sale.status === "pending" ? "Pendente" : "Cancelada"}
+                        {sale.sale_status === "completed" ? "Concluída" :
+                         sale.sale_status === "pending" ? "Pendente" : "Cancelada"}
                       </span>
                     </td>
                     <td>
