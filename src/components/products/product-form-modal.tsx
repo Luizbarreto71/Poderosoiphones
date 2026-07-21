@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { X, Smartphone, Hash, MapPin, DollarSign, TrendingUp } from "lucide-react"
+import { X, Smartphone, Hash, MapPin, DollarSign, TrendingUp, Scan, CheckCircle, XCircle, Zap } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
 import { supabase } from "@/lib/supabase"
 
@@ -48,17 +48,32 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
     price: "",
   })
   const [loading, setLoading] = useState(false)
+  const [scanning, setScanning] = useState(false)
+  const [imeiMessage, setImeiMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const [autoMode, setAutoMode] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
+  const imeiRef = useRef<HTMLInputElement>(null)
   const brandRef = useRef<HTMLInputElement>(null)
   const modelRef = useRef<HTMLInputElement>(null)
+  const inputBuffer = useRef<string>("")
+  const bufferTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const formRef = useRef<HTMLFormElement>(null)
 
-  // Auto focus no primeiro campo
+  // Auto focus no campo de IMEI
   useEffect(() => {
-    if (isOpen && brandRef.current) {
-      setTimeout(() => brandRef.current?.focus(), 100)
+    if (isOpen && imeiRef.current) {
+      setTimeout(() => imeiRef.current?.focus(), 100)
     }
   }, [isOpen])
+
+  // Limpar mensagem após 3 segundos
+  useEffect(() => {
+    if (imeiMessage) {
+      const timer = setTimeout(() => setImeiMessage(null), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [imeiMessage])
 
   // Calcular lucro e margem
   const cost = parseFloat(formData.cost) || 0
@@ -70,6 +85,146 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
   const productName = formData.brand && formData.model 
     ? `${formData.brand} ${formData.model}`
     : ""
+
+  // Validar IMEI (algoritmo de Luhn)
+  const validateIMEI = (imei: string): boolean => {
+    if (!/^\d{15}$/.test(imei)) return false
+    let sum = 0
+    for (let i = 0; i < 15; i++) {
+      let digit = parseInt(imei[i])
+      if (i % 2 === 1) {
+        digit *= 2
+        if (digit > 9) digit -= 9
+      }
+      sum += digit
+    }
+    return sum % 10 === 0
+  }
+
+  // Extrair TAC do IMEI
+  const extractTAC = (imei: string): string => imei.substring(0, 8)
+
+  // Buscar dispositivo pela TAC
+  const lookupTAC = async (tac: string) => {
+    const { data, error } = await supabase
+      .from('device_tac_database')
+      .select('*')
+      .eq('tac', tac)
+      .single()
+
+    if (error || !data) return null
+    return data
+  }
+
+  // Processar IMEI escaneado
+  const processIMEI = async (imei: string) => {
+    const cleanIMEI = imei.replace(/\D/g, '')
+
+    if (cleanIMEI.length !== 15) {
+      setImeiMessage({ type: "error", text: "IMEI inválido! Deve ter 15 dígitos." })
+      setScanning(false)
+      return
+    }
+
+    if (!validateIMEI(cleanIMEI)) {
+      setImeiMessage({ type: "error", text: "IMEI inválido! Dígito verificador incorreto." })
+      setScanning(false)
+      return
+    }
+
+    setScanning(true)
+
+    try {
+      // Verificar se IMEI já existe
+      const { data: existingIMEI } = await supabase
+        .from('imeis')
+        .select('id')
+        .eq('imei_primary', cleanIMEI)
+        .single()
+
+      if (existingIMEI) {
+        setImeiMessage({ type: "error", text: "IMEI já cadastrado no sistema!" })
+        setScanning(false)
+        return
+      }
+
+      // Buscar na base TAC
+      const tac = extractTAC(cleanIMEI)
+      const device = await lookupTAC(tac)
+
+      // Atualizar form com IMEI
+      setFormData(prev => ({
+        ...prev,
+        imei_primary: cleanIMEI,
+      }))
+
+      if (device) {
+        // Preencher automaticamente marca, modelo e categoria
+        setFormData(prev => ({
+          ...prev,
+          imei_primary: cleanIMEI,
+          brand: device.brand,
+          model: device.model,
+          category: device.brand === 'Apple' ? 'iPhone' : 
+                    device.brand === 'Samsung' ? 'Samsung' : 
+                    device.brand === 'Xiaomi' ? 'Xiaomi' : 'Outros',
+        }))
+
+        setImeiMessage({ type: "success", text: `✅ ${device.brand} ${device.model} identificado!` })
+        playBeep(800, 200)
+      } else {
+        setImeiMessage({ type: "error", text: `TAC ${tac} não encontrado. Preencha manualmente.` })
+      }
+
+      setAutoMode(true)
+    } catch (error) {
+      console.error('Erro ao processar IMEI:', error)
+      setImeiMessage({ type: "error", text: "Erro ao processar IMEI. Tente novamente." })
+    } finally {
+      setScanning(false)
+    }
+  }
+
+  // Som de beep
+  const playBeep = (frequency: number, duration: number) => {
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const oscillator = audioContext.createOscillator()
+      const gainNode = audioContext.createGain()
+      oscillator.connect(gainNode)
+      gainNode.connect(audioContext.destination)
+      oscillator.frequency.value = frequency
+      oscillator.type = 'sine'
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration / 1000)
+      oscillator.start(audioContext.currentTime)
+      oscillator.stop(audioContext.currentTime + duration / 1000)
+    } catch (error) {
+      console.error('Erro ao reproduzir som:', error)
+    }
+  }
+
+  // Detectar entrada do leitor de código de barras
+  const handleImeiKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      if (inputBuffer.current.length > 0) {
+        processIMEI(inputBuffer.current)
+        inputBuffer.current = ""
+      } else if (formData.imei_primary.length > 0) {
+        processIMEI(formData.imei_primary)
+      }
+    } else if (e.key.length === 1) {
+      inputBuffer.current += e.key
+      if (bufferTimeout.current) clearTimeout(bufferTimeout.current)
+      bufferTimeout.current = setTimeout(() => {
+        if (inputBuffer.current.length === 15) {
+          processIMEI(inputBuffer.current)
+          inputBuffer.current = ""
+        }
+      }, 100)
+    }
+  }
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -100,17 +255,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
     try {
       const productName = `${formData.brand} ${formData.model}`
       
-      console.log("=== CADASTRANDO PRODUTO ===")
-      console.log("Nome:", productName)
-      console.log("Marca:", formData.brand)
-      console.log("Modelo:", formData.model)
-      console.log("Categoria:", formData.category)
-      console.log("Custo:", parseFloat(formData.cost))
-      console.log("Preço:", parseFloat(formData.price))
-      console.log("Estoque:", parseInt(formData.stock))
-      console.log("Min Stock:", parseInt(formData.min_stock))
-
-      const { data, error } = await supabase
+      const { data: productData, error } = await supabase
         .from('products')
         .insert([{
           name: productName,
@@ -129,18 +274,27 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
           product_status: "ativo"
         }])
         .select()
+        .single()
 
-      if (error) {
-        console.error("=== ERRO DO SUPABASE ===")
-        console.error("Código:", error.code)
-        console.error("Mensagem:", error.message)
-        console.error("Detalhes:", error.details)
-        console.error("Hint:", error.hint)
-        throw error
+      if (error) throw error
+
+      // Se tiver IMEI, criar registro na tabela imeis
+      if (formData.imei_primary && formData.imei_primary.length === 15) {
+        const { error: imeiError } = await supabase
+          .from('imeis')
+          .insert([{
+            product_id: productData.id,
+            imei_primary: formData.imei_primary,
+            imei_secondary: formData.imei_secondary || null,
+            serial_number: formData.serial_number || null,
+            imei_status: 'estoque',
+            notes: formData.imei_secondary ? `IMEI Secundário: ${formData.imei_secondary}` : null
+          }])
+
+        if (imeiError) {
+          console.error('Erro ao salvar IMEI:', imeiError)
+        }
       }
-
-      console.log("=== PRODUTO CADASTRADO COM SUCESSO ===")
-      console.log("Dados:", data)
 
       // Reset form
       setFormData({
@@ -159,6 +313,8 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
         cost: "",
         price: "",
       })
+      setImeiMessage(null)
+      setAutoMode(false)
       setErrors({})
 
       alert("Produto cadastrado com sucesso!")
@@ -212,7 +368,62 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-8 overflow-y-auto max-h-[calc(90vh-100px)]">
+            {/* Leitor de IMEI - Seção em Destaque */}
+            <div className="px-8 pt-6">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl p-5">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Scan className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-sm font-semibold text-blue-900 mb-1.5">
+                      📱 Escaneie ou digite o IMEI
+                    </label>
+                    <div className="relative">
+                      <input
+                        ref={imeiRef}
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={15}
+                        className={`w-full text-lg font-mono tracking-wider input-modern pr-10 ${
+                          scanning ? "border-blue-500 animate-pulse" : ""
+                        } ${imeiMessage?.type === "success" ? "border-green-500 bg-green-50" : ""} ${
+                          imeiMessage?.type === "error" ? "border-red-500 bg-red-50" : ""
+                        }`}
+                        value={formData.imei_primary}
+                        onChange={(e) => setFormData({...formData, imei_primary: e.target.value.replace(/\D/g, '')})}
+                        onKeyDown={handleImeiKeyDown}
+                        placeholder="Aguardando leitura do leitor..."
+                        disabled={loading}
+                        autoComplete="off"
+                      />
+                      {scanning && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <Zap className="h-5 w-5 text-blue-600 animate-pulse" />
+                        </div>
+                      )}
+                    </div>
+                    {imeiMessage && (
+                      <div className={`mt-2 flex items-center gap-1.5 text-sm ${
+                        imeiMessage.type === "success" ? "text-green-700" : "text-red-700"
+                      }`}>
+                        {imeiMessage.type === "success" ? (
+                          <CheckCircle className="h-4 w-4" />
+                        ) : (
+                          <XCircle className="h-4 w-4" />
+                        )}
+                        <span>{imeiMessage.text}</span>
+                      </div>
+                    )}
+                    <p className="text-xs text-blue-600 mt-1.5">
+                      Leitor de código de barras USB/Bluetooth • Digite 15 dígitos
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <form ref={formRef} onSubmit={handleSubmit} className="p-8 overflow-y-auto max-h-[calc(90vh-150px)]">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Coluna Esquerda - Formulário */}
                 <div className="space-y-6">
@@ -232,7 +443,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
                           ref={brandRef}
                           type="text"
                           required
-                          className={`input-modern ${errors.brand ? 'border-red-500' : ''}`}
+                          className={`input-modern ${errors.brand ? 'border-red-500' : ''} ${autoMode ? 'bg-green-50 border-green-300' : ''}`}
                           value={formData.brand}
                           onChange={(e) => setFormData({...formData, brand: e.target.value})}
                           onKeyDown={(e) => handleKeyDown(e, modelRef.current?.focus)}
@@ -248,7 +459,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
                           ref={modelRef}
                           type="text"
                           required
-                          className={`input-modern ${errors.model ? 'border-red-500' : ''}`}
+                          className={`input-modern ${errors.model ? 'border-red-500' : ''} ${autoMode ? 'bg-green-50 border-green-300' : ''}`}
                           value={formData.model}
                           onChange={(e) => setFormData({...formData, model: e.target.value})}
                           placeholder="Ex: iPhone 15 Pro Max"
@@ -333,38 +544,28 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
                     </h3>
                     
                     <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">IMEI Principal</label>
-                        <input
-                          type="text"
-                          maxLength={15}
-                          className={`input-modern ${errors.imei_primary ? 'border-red-500' : ''}`}
-                          value={formData.imei_primary}
-                          onChange={(e) => setFormData({...formData, imei_primary: e.target.value.replace(/\D/g, '')})}
-                          placeholder="15 dígitos"
-                        />
-                        {errors.imei_primary && <p className="text-red-500 text-xs mt-1">{errors.imei_primary}</p>}
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">IMEI Secundário</label>
-                        <input
-                          type="text"
-                          maxLength={15}
-                          className="input-modern"
-                          value={formData.imei_secondary}
-                          onChange={(e) => setFormData({...formData, imei_secondary: e.target.value.replace(/\D/g, '')})}
-                          placeholder="15 dígitos (opcional)"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1.5">Número de Série</label>
-                        <input
-                          type="text"
-                          className="input-modern"
-                          value={formData.serial_number}
-                          onChange={(e) => setFormData({...formData, serial_number: e.target.value})}
-                          placeholder="Número de série (opcional)"
-                        />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1.5">IMEI Secundário</label>
+                          <input
+                            type="text"
+                            maxLength={15}
+                            className="input-modern"
+                            value={formData.imei_secondary}
+                            onChange={(e) => setFormData({...formData, imei_secondary: e.target.value.replace(/\D/g, '')})}
+                            placeholder="15 dígitos (opcional)"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1.5">Número de Série</label>
+                          <input
+                            type="text"
+                            className="input-modern"
+                            value={formData.serial_number}
+                            onChange={(e) => setFormData({...formData, serial_number: e.target.value})}
+                            placeholder="Número de série (opcional)"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -420,41 +621,50 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
                 {/* Coluna Direita - Preview e Comercial */}
                 <div className="space-y-6">
                   {/* Preview do Produto */}
-                  {productName && (
-                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-6 border border-gray-200">
-                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
-                        Preview do Produto
-                      </h3>
-                      <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
-                        <div className="flex items-start gap-4">
-                          <div className="w-16 h-16 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                            <Smartphone className="h-8 w-8 text-blue-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-bold text-gray-900 text-lg leading-tight">
-                              {productName}
-                            </h4>
-                            <p className="text-sm text-gray-600 mt-1">
-                              {formData.capacity && `${formData.capacity} • `}
-                              {formData.condition === 'novo' ? 'Novo' : 
-                               formData.condition === 'seminovo' ? 'Seminovo' :
-                               formData.condition === 'usado' ? 'Usado' : 'Vitrine'}
-                            </p>
-                            {formData.color && (
-                              <p className="text-sm text-gray-500 mt-0.5">{formData.color}</p>
-                            )}
+                  <div className={`rounded-2xl p-6 border transition-all ${
+                    autoMode 
+                      ? "bg-gradient-to-br from-green-50 to-emerald-50 border-green-300" 
+                      : productName 
+                        ? "bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200" 
+                        : ""
+                  }`}>
+                    {productName ? (
+                      <>
+                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
+                          📱 Preview do Produto
+                        </h3>
+                        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
+                          <div className="flex items-start gap-4">
+                            <div className="w-16 h-16 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                              <Smartphone className="h-8 w-8 text-blue-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-bold text-gray-900 text-lg leading-tight">
+                                {productName}
+                              </h4>
+                              <p className="text-sm text-gray-600 mt-1">
+                                {formData.capacity && `${formData.capacity} • `}
+                                {formData.color && `${formData.color} • `}
+                                {formData.condition === 'novo' ? 'Novo' : 
+                                 formData.condition === 'seminovo' ? 'Seminovo' :
+                                 formData.condition === 'usado' ? 'Usado' : 'Vitrine'}
+                              </p>
+                              {formData.imei_primary && (
+                                <p className="text-xs font-mono text-gray-500 mt-1">
+                                  IMEI: {formData.imei_primary.slice(0, 6)}******{formData.imei_primary.slice(-3)}
+                                </p>
+                              )}
+                            </div>
                           </div>
                         </div>
-                        {formData.imei_primary && (
-                          <div className="mt-4 pt-4 border-t border-gray-100">
-                            <p className="text-xs text-gray-500">
-                              IMEI: {formData.imei_primary.slice(0, 6)}******{formData.imei_primary.slice(-3)}
-                            </p>
-                          </div>
-                        )}
+                      </>
+                    ) : (
+                      <div className="text-center py-8 text-gray-400">
+                        <Scan className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                        <p className="text-sm">Bipe o IMEI para ver o preview</p>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
 
                   {/* Seção 5: Comercial */}
                   <div className="space-y-4">
