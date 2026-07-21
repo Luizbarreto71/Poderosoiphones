@@ -4,7 +4,7 @@ import * as React from "react"
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
-import { Search, Plus, User, Phone, MapPin, Smartphone, ArrowRightLeft, Calendar, DollarSign } from "lucide-react"
+import { Search, Plus, User, Phone, MapPin, Smartphone, ArrowRightLeft, Calendar, DollarSign, Upload, Trash2, Check } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
 import { supabase } from "@/lib/supabase"
 
@@ -25,11 +25,24 @@ interface Trade {
   created_at: string
 }
 
+interface SuggestedPrice {
+  id: string
+  brand: string
+  model: string
+  capacity: string
+  suggested_price: number
+}
+
 export default function TrocasPage() {
   const [trades, setTrades] = useState<Trade[]>([])
+  const [suggestedPrices, setSuggestedPrices] = useState<SuggestedPrice[]>([])
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [showPricesForm, setShowPricesForm] = useState(false)
+  const [activeTab, setActiveTab] = useState<"new" | "history" | "prices">("new")
+  
+  // Form data
   const [formData, setFormData] = useState({
     customer_name: "",
     customer_phone: "",
@@ -41,10 +54,20 @@ export default function TrocasPage() {
     device_given_price: "",
     difference: "",
   })
+
+  // Suggested price form
+  const [priceFormData, setPriceFormData] = useState({
+    brand: "",
+    model: "",
+    capacity: "",
+    suggested_price: "",
+  })
+  const [bulkImport, setBulkImport] = useState("")
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     loadTrades()
+    loadSuggestedPrices()
   }, [])
 
   const loadTrades = async () => {
@@ -61,6 +84,29 @@ export default function TrocasPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const loadSuggestedPrices = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('suggested_prices')
+        .select('*')
+        .order('brand, model, capacity')
+
+      if (error) throw error
+      setSuggestedPrices(data || [])
+    } catch (error) {
+      console.error('Erro ao carregar preços sugeridos:', error)
+    }
+  }
+
+  // Buscar preço sugerido
+  const findSuggestedPrice = (brand: string, model: string, capacity: string): SuggestedPrice | null => {
+    return suggestedPrices.find(p => 
+      p.brand.toLowerCase() === brand.toLowerCase() &&
+      p.model.toLowerCase() === model.toLowerCase() &&
+      p.capacity === capacity
+    ) || null
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -107,6 +153,99 @@ export default function TrocasPage() {
     }
   }
 
+  const handlePriceSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubmitting(true)
+
+    try {
+      const { error } = await supabase
+        .from('suggested_prices')
+        .insert([{
+          brand: priceFormData.brand,
+          model: priceFormData.model,
+          capacity: priceFormData.capacity,
+          suggested_price: parseFloat(priceFormData.suggested_price)
+        }])
+
+      if (error) throw error
+
+      alert("Preço sugerido cadastrado!")
+      setPriceFormData({ brand: "", model: "", capacity: "", suggested_price: "" })
+      loadSuggestedPrices()
+    } catch (error) {
+      console.error('Erro ao cadastrar preço:', error)
+      alert("Erro ao cadastrar preço")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleBulkImport = async () => {
+    if (!bulkImport.trim()) return
+
+    const lines = bulkImport.split('\n').filter(line => line.trim())
+    const pricesToInsert = []
+
+    for (const line of lines) {
+      // Formato esperado: "iPhone 13 128GB - 2300" ou "iPhone 13 128GB 2300"
+      const match = line.match(/(.+?)\s+(\d+GB)\s+[-–]\s*(\d+\.?\d*)/i) || 
+                    line.match(/(.+?)\s+(\d+GB)\s+(\d+\.?\d*)/i)
+      
+      if (match) {
+        const [, model, capacity, price] = match
+        // Extrair marca do modelo (primeira palavra)
+        const brand = model.split(' ')[0]
+        const modelName = model.replace(brand, '').trim()
+        
+        pricesToInsert.push({
+          brand,
+          model: modelName,
+          capacity,
+          suggested_price: parseFloat(price)
+        })
+      }
+    }
+
+    if (pricesToInsert.length > 0) {
+      try {
+        const { error } = await supabase
+          .from('suggested_prices')
+          .insert(pricesToInsert)
+
+        if (error) throw error
+
+        alert(`${pricesToInsert.length} preços importados com sucesso!`)
+        setBulkImport("")
+        loadSuggestedPrices()
+      } catch (error) {
+        console.error('Erro na importação:', error)
+        alert("Erro ao importar preços")
+      }
+    } else {
+      alert("Nenhum preço válido encontrado. Use o formato:\niPhone 13 128GB - 2300")
+    }
+  }
+
+  const deletePrice = async (id: string) => {
+    if (!confirm("Deseja excluir este preço?")) return
+
+    const { error } = await supabase
+      .from('suggested_prices')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      alert("Erro ao excluir")
+      return
+    }
+
+    loadSuggestedPrices()
+  }
+
+  const useSuggestedPrice = (price: number) => {
+    setFormData({...formData, device_given_price: price.toString()})
+  }
+
   const filteredTrades = trades.filter(t => 
     t.customer_name.toLowerCase().includes(search.toLowerCase()) ||
     t.customer_phone.includes(search) ||
@@ -117,69 +256,232 @@ export default function TrocasPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="page-title">Trocas</h1>
-            <p className="page-subtitle">Gerencie trocas de aparelhos</p>
-          </div>
-          <button onClick={() => setShowForm(true)} className="btn btn-primary">
-            <ArrowRightLeft className="h-4 w-4" />
+        <div>
+          <h1 className="page-title">Trocas</h1>
+          <p className="page-subtitle">Gerencie trocas de aparelhos</p>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-2 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab("new")}
+            className={`px-4 py-2 font-medium transition-all ${
+              activeTab === "new"
+                ? "border-b-2 border-blue-600 text-blue-600"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            <Plus className="h-4 w-4 inline mr-2" />
             Nova Troca
+          </button>
+          <button
+            onClick={() => setActiveTab("history")}
+            className={`px-4 py-2 font-medium transition-all ${
+              activeTab === "history"
+                ? "border-b-2 border-blue-600 text-blue-600"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            <Search className="h-4 w-4 inline mr-2" />
+            Histórico
+          </button>
+          <button
+            onClick={() => setActiveTab("prices")}
+            className={`px-4 py-2 font-medium transition-all ${
+              activeTab === "prices"
+                ? "border-b-2 border-blue-600 text-blue-600"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            <DollarSign className="h-4 w-4 inline mr-2" />
+            Preços Sugeridos
           </button>
         </div>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Buscar por cliente, telefone ou aparelho..."
-            className="input-modern pl-10"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-
-        {/* Trades List */}
-        <div className="chart-container">
-          {loading ? (
-            <div className="text-center py-12"><p className="text-gray-500">Carregando...</p></div>
-          ) : filteredTrades.length === 0 ? (
-            <div className="text-center py-12 text-gray-400">
-              <ArrowRightLeft className="h-12 w-12 mx-auto mb-3" />
-              <p>Nenhuma troca encontrada</p>
+        {/* Tab: Nova Troca */}
+        {activeTab === "new" && (
+          <div className="chart-container">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold">Nova Troca</h3>
+              <button onClick={() => setShowForm(true)} className="btn btn-primary">
+                <Plus className="h-4 w-4" />
+                Nova Troca
+              </button>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredTrades.map((trade) => (
-                <div key={trade.id} className="border border-gray-100 rounded-xl p-4 hover:bg-gray-50 transition-all">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-4 flex-1">
-                      <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                        <ArrowRightLeft className="h-6 w-6 text-blue-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{trade.customer_name}</p>
-                        <p className="text-sm text-gray-600">
-                          {trade.device_received} → {trade.device_given}
-                        </p>
-                        <div className="flex gap-3 mt-1 text-xs text-gray-400">
-                          <span>{trade.customer_phone}</span>
-                          <span>Diferença: {formatCurrency(trade.difference)}</span>
-                          <span>{new Date(trade.date).toLocaleDateString('pt-BR')}</span>
+            <div className="text-center py-12 text-gray-400">
+              <ArrowRightLeft className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>Clique em "Nova Troca" para registrar uma troca</p>
+            </div>
+          </div>
+        )}
+
+        {/* Tab: Histórico */}
+        {activeTab === "history" && (
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Buscar por cliente, telefone ou aparelho..."
+                className="input-modern pl-10"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+
+            <div className="chart-container">
+              {loading ? (
+                <div className="text-center py-12"><p className="text-gray-500">Carregando...</p></div>
+              ) : filteredTrades.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  <ArrowRightLeft className="h-12 w-12 mx-auto mb-3" />
+                  <p>Nenhuma troca encontrada</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredTrades.map((trade) => (
+                    <div key={trade.id} className="border border-gray-100 rounded-xl p-4 hover:bg-gray-50 transition-all">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-4 flex-1">
+                          <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                            <ArrowRightLeft className="h-6 w-6 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">{trade.customer_name}</p>
+                            <p className="text-sm text-gray-600">
+                              {trade.device_received} → {trade.device_given}
+                            </p>
+                            <div className="flex gap-3 mt-1 text-xs text-gray-400">
+                              <span>{trade.customer_phone}</span>
+                              <span>Diferença: {formatCurrency(trade.difference)}</span>
+                              <span>{new Date(trade.date).toLocaleDateString('pt-BR')}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-blue-600">{formatCurrency(trade.difference)}</p>
+                          <span className="badge badge-success">Concluída</span>
                         </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-blue-600">{formatCurrency(trade.difference)}</p>
-                      <span className="badge badge-success">Concluída</span>
-                    </div>
-                  </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Tab: Preços Sugeridos */}
+        {activeTab === "prices" && (
+          <div className="space-y-6">
+            {/* Add Price Form */}
+            <div className="chart-container">
+              <h3 className="text-lg font-semibold mb-4">Cadastrar Preço Sugerido</h3>
+              <form onSubmit={handlePriceSubmit} className="grid md:grid-cols-5 gap-3">
+                <input
+                  type="text"
+                  required
+                  placeholder="Marca (ex: Apple)"
+                  className="input-modern"
+                  value={priceFormData.brand}
+                  onChange={(e) => setPriceFormData({...priceFormData, brand: e.target.value})}
+                />
+                <input
+                  type="text"
+                  required
+                  placeholder="Modelo (ex: iPhone 13)"
+                  className="input-modern"
+                  value={priceFormData.model}
+                  onChange={(e) => setPriceFormData({...priceFormData, model: e.target.value})}
+                />
+                <input
+                  type="text"
+                  required
+                  placeholder="Capacidade (ex: 128GB)"
+                  className="input-modern"
+                  value={priceFormData.capacity}
+                  onChange={(e) => setPriceFormData({...priceFormData, capacity: e.target.value})}
+                />
+                <input
+                  type="number"
+                  required
+                  step="0.01"
+                  placeholder="Preço (R$)"
+                  className="input-modern"
+                  value={priceFormData.suggested_price}
+                  onChange={(e) => setPriceFormData({...priceFormData, suggested_price: e.target.value})}
+                />
+                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                  {submitting ? "Salvando..." : "Cadastrar"}
+                </button>
+              </form>
+            </div>
+
+            {/* Bulk Import */}
+            <div className="chart-container">
+              <h3 className="text-lg font-semibold mb-4">Importação Rápida</h3>
+              <p className="text-sm text-gray-600 mb-3">
+                Cole uma lista no formato: <code className="bg-gray-100 px-2 py-1 rounded">iPhone 13 128GB - 2300</code>
+              </p>
+              <textarea
+                className="input-modern h-32 mb-3"
+                value={bulkImport}
+                onChange={(e) => setBulkImport(e.target.value)}
+                placeholder="iPhone 13 128GB - 2300
+iPhone 13 256GB - 2600
+iPhone 14 128GB - 3100"
+              />
+              <button onClick={handleBulkImport} className="btn btn-secondary">
+                <Upload className="h-4 w-4" />
+                Importar Lista
+              </button>
+            </div>
+
+            {/* Prices List */}
+            <div className="chart-container">
+              <h3 className="text-lg font-semibold mb-4">Preços Cadastrados ({suggestedPrices.length})</h3>
+              {suggestedPrices.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  <DollarSign className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p>Nenhum preço cadastrado</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Marca</th>
+                        <th>Modelo</th>
+                        <th>Capacidade</th>
+                        <th>Preço Sugerido</th>
+                        <th>Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {suggestedPrices.map((price) => (
+                        <tr key={price.id}>
+                          <td className="font-medium">{price.brand}</td>
+                          <td>{price.model}</td>
+                          <td>{price.capacity}</td>
+                          <td className="font-bold text-green-600">{formatCurrency(price.suggested_price)}</td>
+                          <td>
+                            <button
+                              onClick={() => deletePrice(price.id)}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                              title="Excluir"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* New Trade Modal */}
         <AnimatePresence>
