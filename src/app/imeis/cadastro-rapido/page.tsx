@@ -46,7 +46,7 @@ export default function CadastroRapidoImeiPage() {
   
   const imeiRef = useRef<HTMLInputElement>(null)
   const inputBuffer = useRef<string>("")
-  const bufferTimeout = useRef<ReturnType<typeof setTimeout>>()
+  const bufferTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Auto focus no campo de IMEI
   useEffect(() => {
