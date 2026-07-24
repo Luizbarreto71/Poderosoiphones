@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS suggested_prices (
   capacity TEXT NOT NULL,
   suggested_price DECIMAL(10, 2) NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  CONSTRAINT unique_brand_model_capacity UNIQUE (brand, model, capacity)
 );
 
 -- Índice para busca rápida
