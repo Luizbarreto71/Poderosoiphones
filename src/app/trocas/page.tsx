@@ -4,7 +4,7 @@ import * as React from "react"
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { DashboardLayout } from "@/components/layout/dashboard-layout"
-import { Search, Plus, User, Phone, MapPin, Smartphone, ArrowRightLeft, Calendar, DollarSign, Upload, Trash2, Check } from "lucide-react"
+import { Search, Plus, User, Phone, MapPin, Smartphone, ArrowRightLeft, Calendar, DollarSign, Upload, Trash2, Check, Camera, FileText } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
 import { supabase } from "@/lib/supabase"
 
@@ -53,7 +53,13 @@ export default function TrocasPage() {
     device_given: "",
     device_given_price: "",
     difference: "",
+    description: "",
+    device_received_photo: null as File | null,
+    device_given_photo: null as File | null,
   })
+  
+  const [photoPreviewReceived, setPhotoPreviewReceived] = useState<string | null>(null)
+  const [photoPreviewGiven, setPhotoPreviewGiven] = useState<string | null>(null)
 
   // Suggested price form
   const [priceFormData, setPriceFormData] = useState({
@@ -109,11 +115,40 @@ export default function TrocasPage() {
     ) || null
   }
 
+  const uploadPhoto = async (file: File | null): Promise<string | null> => {
+    if (!file) return null
+    
+    try {
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${Date.now()}-${Math.random()}.${fileExt}`
+      const filePath = `trade-photos/${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('photos')
+        .upload(filePath, file)
+
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('photos')
+        .getPublicUrl(filePath)
+
+      return publicUrl
+    } catch (error) {
+      console.error('Erro ao fazer upload da foto:', error)
+      return null
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSubmitting(true)
 
     try {
+      // Upload das fotos
+      const receivedPhotoUrl = await uploadPhoto(formData.device_received_photo)
+      const givenPhotoUrl = await uploadPhoto(formData.device_given_photo)
+
       const { error } = await supabase
         .from('trades')
         .insert([{
@@ -126,10 +161,17 @@ export default function TrocasPage() {
           device_given: formData.device_given,
           device_given_price: parseFloat(formData.device_given_price),
           difference: parseFloat(formData.difference),
+          description: formData.description || null,
+          device_received_photo: receivedPhotoUrl,
+          device_given_photo: givenPhotoUrl,
           trade_status: 'completed'
         }])
 
-      if (error) throw error
+      if (error) {
+        console.error('Erro ao salvar troca:', error)
+        alert(`Erro ao registrar troca: ${error.message}`)
+        return
+      }
 
       alert("Troca registrada com sucesso!")
       setShowForm(false)
@@ -143,7 +185,12 @@ export default function TrocasPage() {
         device_given: "",
         device_given_price: "",
         difference: "",
+        description: "",
+        device_received_photo: null,
+        device_given_photo: null,
       })
+      setPhotoPreviewReceived(null)
+      setPhotoPreviewGiven(null)
       loadTrades()
     } catch (error) {
       console.error('Erro ao registrar troca:', error)
@@ -548,6 +595,34 @@ iPhone 14 128GB - 3100"
                           <option value="defeito">Com defeito</option>
                         </select>
                       </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Foto do Aparelho de Entrada</label>
+                        <div className="flex items-center gap-3">
+                          <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                            <Camera className="h-4 w-4" />
+                            <span className="text-sm">Escolher Foto</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0]
+                                if (file) {
+                                  setFormData({...formData, device_received_photo: file})
+                                  const reader = new FileReader()
+                                  reader.onloadend = () => {
+                                    setPhotoPreviewReceived(reader.result as string)
+                                  }
+                                  reader.readAsDataURL(file)
+                                }
+                              }}
+                            />
+                          </label>
+                          {photoPreviewReceived && (
+                            <img src={photoPreviewReceived} alt="Preview" className="h-16 w-16 object-cover rounded-lg border border-gray-200" />
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -571,7 +646,48 @@ iPhone 14 128GB - 3100"
                           <input type="number" required step="0.01" className="input-modern" value={formData.difference} onChange={(e) => setFormData({...formData, difference: e.target.value})} placeholder="0,00" />
                         </div>
                       </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Foto do Aparelho de Saída</label>
+                        <div className="flex items-center gap-3">
+                          <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                            <Camera className="h-4 w-4" />
+                            <span className="text-sm">Escolher Foto</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0]
+                                if (file) {
+                                  setFormData({...formData, device_given_photo: file})
+                                  const reader = new FileReader()
+                                  reader.onloadend = () => {
+                                    setPhotoPreviewGiven(reader.result as string)
+                                  }
+                                  reader.readAsDataURL(file)
+                                }
+                              }}
+                            />
+                          </label>
+                          {photoPreviewGiven && (
+                            <img src={photoPreviewGiven} alt="Preview" className="h-16 w-16 object-cover rounded-lg border border-gray-200" />
+                          )}
+                        </div>
+                      </div>
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <FileText className="inline h-4 w-4 mr-2" />
+                      Descrição da Troca
+                    </label>
+                    <textarea
+                      className="input-modern h-24"
+                      value={formData.description}
+                      onChange={(e) => setFormData({...formData, description: e.target.value})}
+                      placeholder="Descreva detalhes da troca, observações, estado dos aparelhos, etc."
+                    />
                   </div>
 
                   <div className="flex gap-3 pt-4">
