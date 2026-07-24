@@ -555,31 +555,25 @@ iPhone 14 128GB - 3100"
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Telefone *</label>
-                        <div className="relative">
-                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                          <input 
-                            type="tel" 
-                            required 
-                            className="input-modern pl-10 w-full" 
-                            value={formData.customer_phone} 
-                            onChange={(e) => setFormData({...formData, customer_phone: e.target.value})} 
-                            placeholder="(11) 99999-9999" 
-                          />
-                        </div>
+                        <input 
+                          type="tel" 
+                          required 
+                          className="input-modern w-full" 
+                          value={formData.customer_phone} 
+                          onChange={(e) => setFormData({...formData, customer_phone: e.target.value})} 
+                          placeholder="(11) 99999-9999" 
+                        />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Endereço *</label>
-                        <div className="relative">
-                          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                          <input 
-                            type="text" 
-                            required 
-                            className="input-modern pl-10 w-full" 
-                            value={formData.customer_address} 
-                            onChange={(e) => setFormData({...formData, customer_address: e.target.value})} 
-                            placeholder="Rua, número, bairro, cidade" 
-                          />
-                        </div>
+                        <input 
+                          type="text" 
+                          required 
+                          className="input-modern w-full" 
+                          value={formData.customer_address} 
+                          onChange={(e) => setFormData({...formData, customer_address: e.target.value})} 
+                          placeholder="Rua, número, bairro, cidade" 
+                        />
                       </div>
                     </div>
                   </div>
